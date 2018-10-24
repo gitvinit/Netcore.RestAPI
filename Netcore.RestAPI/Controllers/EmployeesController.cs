@@ -5,31 +5,33 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Netcore.RestAPI.Models;
 using Netcore.RestAPI.Repository;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Netcore.RestAPI.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class EmployeesController : ControllerBase
     {
-        private readonly IEmployeeRepository _employeeRepository;
-        public EmployeesController(IEmployeeRepository employeeRepository)
+        private readonly IEmployeeService _employeeService;
+        public EmployeesController(IEmployeeService employeeService)
         {
-            _employeeRepository = employeeRepository;
+            _employeeService = employeeService;
         }
 
         // GET api/employees
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            return new ObjectResult(await _employeeRepository.GetAllEmployeesAsync());
+            return new ObjectResult(await _employeeService.GetAllEmployeesAsync());
         }
 
-        // GET api/employees/5
+        // GET api/employees/name
         [HttpGet("{name}")]
-        public async Task<IActionResult> Get(string name)
+        public async Task<IActionResult> Get(string username)
         {
-            var employee = await _employeeRepository.GetEmployee(name);
+            var employee = await _employeeService.GetEmployee(username);
             if (employee == null)
                 return new NotFoundResult();
             return new ObjectResult(employee);
@@ -39,7 +41,7 @@ namespace Netcore.RestAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Employee employee)
         {
-            await _employeeRepository.Create(employee);
+            await _employeeService.Create(employee);
             return new OkObjectResult(employee);
         }
 
@@ -47,11 +49,11 @@ namespace Netcore.RestAPI.Controllers
         [HttpPut("{name}")]
         public async Task<IActionResult> Put(string name, [FromBody] Employee employee)
         {
-            var employeeFromDb = await _employeeRepository.GetEmployee(name);
+            var employeeFromDb = await _employeeService.GetEmployee(name);
             if (employeeFromDb == null)
                 return new NotFoundResult();
             employee.Id = employeeFromDb.Id;
-            await _employeeRepository.Update(employee);
+            await _employeeService.Update(employee);
             return new OkObjectResult(employee);
         }
 
@@ -59,11 +61,25 @@ namespace Netcore.RestAPI.Controllers
         [HttpDelete("{name}")]
         public async Task<IActionResult> Delete(string name)
         {
-            var employeeFromDb = await _employeeRepository.GetEmployee(name);
+            var employeeFromDb = await _employeeService.GetEmployee(name);
             if (employeeFromDb == null)
                 return new NotFoundResult();
-            await _employeeRepository.Delete(name);
+            await _employeeService.Delete(name);
             return new OkResult();
         }
+
+        [AllowAnonymous]
+        [HttpPost("authenticate")]
+        public async Task<IActionResult> Authenticate([FromBody]Employee employee)
+        {
+            var user = await _employeeService.Authenticate(employee.Username, employee.Password);
+
+            if (user == null)
+                return BadRequest(new { message = "Username or password is incorrect" });
+
+            return Ok(user);
+        }
+
+
     }
 }
